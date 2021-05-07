@@ -1,0 +1,47 @@
+name: Synchronize fork with upstream repository
+on:
+  workflow_dispatch:
+  schedule:
+    - cron:  '* * * * *'
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Update fork based on upstream repo
+        run: |
+          # prepare
+          git config --global user.name 'Pascal Iske'
+          git config --global user.email 'pascaliske@users.noreply.github.com'
+          git pull --unshallow
+
+          # fetch upstream commits
+          git remote add upstream https://github.com/csstools/postcss-sass.git
+          git fetch upstream
+
+          # update master branch
+          git checkout master
+          git merge --no-edit upstream/master
+          git push origin master
+
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Build lib based on updated fork
+        run: |
+          # prepare
+          git config --global user.name 'Pascal Iske'
+          git config --global user.email 'pascaliske@users.noreply.github.com'
+
+          # build lib
+          npm install
+          npm run pretest
+          date +%c > updated
+
+          # push built lib to fork repo
+          git add -f index.cjs.js index.es.mjs updated
+          git commit -m "chore: commit built files for install through git repo"
+          git push
